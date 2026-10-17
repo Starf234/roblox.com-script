@@ -1,0 +1,1026 @@
+-- custom roblox chat log
+
+local Players = game:GetService("Players")
+local TextChatService = game:GetService("TextChatService")
+local UserInputService = game:GetService("UserInputService")
+local StarterGui = game:GetService("StarterGui")
+
+local player = Players.LocalPlayer
+local playerGui = player:WaitForChild("PlayerGui")
+
+local previous = playerGui:FindFirstChild("MyCustomChat")
+if previous then previous:Destroy() end
+
+local WHITE = Color3.fromRGB(240, 240, 245)
+local MUTED = Color3.fromRGB(155, 160, 173)
+local DEFAULT_ACCENT = Color3.fromRGB(70, 115, 220)
+local accent = DEFAULT_ACCENT
+local MIN_WIDTH, MIN_HEIGHT = 320, 200
+local MAX_WIDTH, MAX_HEIGHT = 1100, 850
+local MAX_MESSAGES = 250
+
+local connections = {}
+local closed = false
+
+local function track(connection)
+	table.insert(connections, connection)
+	return connection
+end
+
+local function make(className, props, parent)
+	local obj = Instance.new(className)
+	for key, value in pairs(props) do
+		obj[key] = value
+	end
+	obj.Parent = parent
+	return obj
+end
+
+local function corner(obj, radius)
+	local c = Instance.new("UICorner")
+	c.CornerRadius = UDim.new(0, radius)
+	c.Parent = obj
+end
+
+local function stroke(obj, color, transparency)
+	local s = Instance.new("UIStroke")
+	s.Color = color
+	s.Transparency = transparency or 0
+	s.Thickness = 1
+	s.Parent = obj
+	return s
+end
+
+local function escapeRichText(text)
+	text = tostring(text or "")
+	return text:gsub("&", "&amp;"):gsub("<", "&lt;"):gsub(">", "&gt;")
+end
+
+local function toHex(color)
+	return string.format(
+		"#%02X%02X%02X",
+		math.floor(color.R * 255 + 0.5),
+		math.floor(color.G * 255 + 0.5),
+		math.floor(color.B * 255 + 0.5)
+	)
+end
+
+local CATALOG = {
+	Faces = [[😀 😃 😄 😁 😆 😅 😂 🤣 🥲 ☺️ 😊 😇 🙂 🙃 😉 😌 😍 🥰 😘 😗 😙 😚 😋 😛 😝 😜 🤪 🤨 🧐 🤓 😎 🥸 🤩 🥳 😏 😒 😞 😔 😟 😕 🙁 ☹️ 😣 😖 😫 😩 🥺 😢 😭 😤 😠 😡 🤬 🤯 😳 🥵 🥶 😱 😨 😰 😥 😓 🤗 🤔 🫣 🤭 🫢 🫡 🤫 🫠 🤥 😶 🫥 😐 🫤 😑 😬 🙄 😯 😦 😧 😮 😲 🥱 😴 🤤 😪 😵 😵‍💫 🤐 🥴 🤢 🤮 🤧 😷 🤒 🤕 🤑 🤠 😈 👿 👹 👺 💀 ☠️ 💩 🤡 👻 👽 👾 🤖 🎃 😺 😸 😹 😻 😼 😽 🙀 😿 😾]],
+	Hands = [[👋 🤚 🖐️ ✋ 🖖 🫱 🫲 🫳 🫴 👌 🤌 🤏 ✌️ 🤞 🫰 🤟 🤘 🤙 👈 👉 👆 🖕 👇 ☝️ 🫵 👍 👎 ✊ 👊 🤛 🤜 👏 🙌 🫶 👐 🤲 🤝 🙏 ✍️ 💅 🤳 💪 🦾 🦿 🦵 🦶 👂 🦻 👃]],
+	Hearts = [[❤️ 🧡 💛 💚 💙 💜 🖤 🩶 🤍 🤎 💔 ❤️‍🔥 ❤️‍🩹 💕 💞 💓 💗 💖 💘 💝 💟 ❣️ 💌]],
+	Animals = [[🐶 🐱 🐭 🐹 🐰 🦊 🐻 🐼 🐻‍❄️ 🐨 🐯 🦁 🐮 🐷 🐸 🐵 🙈 🙉 🙊 🐒 🐔 🐧 🐦 🐤 🦆 🦅 🦉 🦇 🐺 🐗 🐴 🦄 🐝 🦋 🐌 🐞 🐜 🕷️ 🦂 🐢 🐍 🦎 🦖 🦕 🐙 🦑 🦐 🦞 🦀 🐡 🐠 🐟 🐬 🐳 🦈 🐊 🦭 🦦 🦥 🦨 🦘 🦬 🐘 🦣 🦒 🦛 🦏 🐪 🐫 🦙 🦌 🐐 🐑 🐏 🐄 🐎 🐖 🦃 🦚 🦜 🦢 🦩 🕊️ 🐇 🦝 🦔 🦡 🐿️ 🦫 🐾]],
+	Nature = [[🌵 🎄 🌲 🌳 🌴 🌱 🌿 ☘️ 🍀 🪴 🍃 🍂 🍁 🍄 🌾 💐 🌷 🌹 🥀 🌺 🌸 🌼 🌻 🌞 🌝 🌛 🌜 🌚 🌕 🌙 🌎 🌍 🌏 🪐 💫 ⭐ 🌟 ✨ ⚡ ☄️ 💥 🔥 🌪️ 🌈 ☀️ 🌤️ ⛅ ☁️ 🌦️ 🌧️ ⛈️ 🌨️ ❄️ ☃️ ⛄ 💧 💦 ☔ 🌊]],
+	Food = [[🍏 🍎 🍐 🍊 🍋 🍌 🍉 🍇 🍓 🫐 🍒 🍑 🥭 🍍 🥥 🥝 🍅 🫒 🥑 🍆 🥔 🥕 🌽 🌶️ 🫑 🥒 🥬 🥦 🧄 🧅 🍞 🥐 🥖 🥨 🥯 🥞 🧇 🧀 🍖 🍗 🥩 🥓 🍔 🍟 🍕 🌭 🥪 🌮 🌯 🥙 🥚 🍳 🥘 🍲 🥗 🍿 🍱 🍚 🍛 🍜 🍝 🍣 🍤 🍦 🍧 🍨 🍩 🍪 🎂 🍰 🧁 🥧 🍫 🍬 🍭 🍯 🥛 ☕ 🫖 🍵 🧃 🥤 🧋 🍺 🍻 🥂 🍷 🥃 🍸 🍹 🧊]],
+	Sports = [[⚽ 🏀 🏈 ⚾ 🥎 🎾 🏐 🏉 🥏 🎱 🏓 🏸 🏒 🏑 🥍 🏏 🥅 ⛳ 🏹 🎣 🤿 🥊 🥋 🛹 🛼 🛷 ⛸️ 🎿 ⛷️ 🏂 🏋️ 🤼 🤸 ⛹️ 🤺 🤾 🏌️ 🏇 🧘 🏄 🏊 🚣 🚴 🚵 🥇 🥈 🥉 🏆 🏅]],
+	Tech = [[📱 📲 💻 🖥️ 🖨️ ⌨️ 🖱️ 💽 💾 💿 📀 🎥 🎬 📺 📷 📸 📹 🔍 🔎 💡 🔦 📚 📰 📜 💰 💳 🧾 📧 ✉️ 📦 🔒 🔓 🔑 🛡️ ⚙️ 🔧 🔨 🪛 🔩 🛠️ ⛏️ 🧰 🧲 🔗 🧪 🧬 🔬 🔭 📡 🛰️ 🚀 🛸]],
+	Transport = [[🚗 🚕 🚙 🚌 🏎️ 🚓 🚑 🚒 🚐 🛻 🚚 🚛 🚜 🏍️ 🛵 🚲 🛴 🛹 ⛽ 🚨 🚦 ⚓ ⛵ 🛶 🚤 🚢 ✈️ 🛩️ 🛫 🛬 💺 🚁 🚃 🚞 🚄 🚅 🚂 🚆 🚇 🚉]],
+	Music = [[🎵 🎶 🎼 🎤 🎧 📻 🎷 🪗 🎸 🎹 🎺 🎻 🪕 🥁 🪘 🪇]],
+	Objects = [[🎁 🎈 🎉 🎊 🎀 🎟️ 🎫 🧸 🪄 🎩 🧵 🧶 🧥 👕 👖 👔 👗 👙 👜 🎒 👟 🥾 👑 🎓 🧢 💄 💍 💎 🪞 🪑 🚪 🛁 🧴 🧹 🧺 🧼 🧽 🛒]],
+	Symbols = [[✅ ☑️ ✔️ ❌ ❎ ➕ ➖ ➗ ✖️ ♾️ 💯 ⚠️ 🚫 ⛔ ❗ ❓ ‼️ ⁉️ ♻️ 🔔 🔕 🔋 💹 🔴 🟠 🟡 🟢 🔵 🟣 ⚫ ⚪ 🟤 🔺 🔻 🔶 🔷 ⬛ ⬜ ⬆️ ⬇️ ⬅️ ➡️ 🔄 🔁 ▶️ ⏩ ◀️ ⏪ ⏸️ ⏹️]],
+	Flags = [[🏁 🚩 🏴 🏳️ 🏳️‍🌈 🏳️‍⚧️ 🏴‍☠️ 🇺🇸 🇬🇧 🇩🇪 🇫🇷 🇮🇹 🇪🇸 🇳🇱 🇧🇪 🇨🇭 🇦🇹 🇵🇱 🇨🇿 🇭🇺 🇬🇷 🇹🇷 🇺🇦 🇷🇺 🇯🇵 🇨🇳 🇰🇷 🇮🇳 🇦🇺 🇨🇦 🇲🇽 🇧🇷 🇿🇦 🇸🇪 🇳🇴 🇩🇰 🇫🇮 🇮🇪]]
+}
+
+local gui = make("ScreenGui", {
+	Name = "MyCustomChat",
+	ResetOnSpawn = false,
+	DisplayOrder = 100,
+	ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+}, playerGui)
+
+local frame = make("Frame", {
+	Name = "ChatPanel",
+	Size = UDim2.fromOffset(460, 350),
+	Position = UDim2.fromOffset(12, 12),
+	BackgroundColor3 = Color3.fromRGB(25, 27, 31),
+	BackgroundTransparency = 0.08,
+	BorderSizePixel = 0,
+	ClipsDescendants = true
+}, gui)
+corner(frame, 12)
+local frameStroke = stroke(frame, accent, 0.45)
+
+make("UISizeConstraint", {
+	MinSize = Vector2.new(MIN_WIDTH, MIN_HEIGHT),
+	MaxSize = Vector2.new(MAX_WIDTH, MAX_HEIGHT)
+}, frame)
+
+local header = make("Frame", {
+	Size = UDim2.new(1, 0, 0, 40),
+	BackgroundColor3 = Color3.fromRGB(32, 34, 40),
+	BorderSizePixel = 0,
+	Active = true,
+	ZIndex = 2
+}, frame)
+corner(header, 12)
+
+make("Frame", {
+	Position = UDim2.new(0, 0, 0, 12),
+	Size = UDim2.new(1, 0, 0, 28),
+	BackgroundColor3 = header.BackgroundColor3,
+	BorderSizePixel = 0,
+	ZIndex = 2
+}, header)
+
+make("TextLabel", {
+	Position = UDim2.fromOffset(13, 0),
+	Size = UDim2.fromOffset(105, 40),
+	BackgroundTransparency = 1,
+	Font = Enum.Font.SourceSansBold,
+	Text = "Chat Log",
+	TextSize = 20,
+	TextColor3 = WHITE,
+	TextXAlignment = Enum.TextXAlignment.Left,
+	ZIndex = 3
+}, header)
+
+local styleButton = make("TextButton", {
+	Position = UDim2.fromOffset(116, 7),
+	Size = UDim2.fromOffset(92, 26),
+	BackgroundColor3 = accent,
+	BorderSizePixel = 0,
+	Text = "Change Style",
+	TextSize = 13,
+	Font = Enum.Font.SourceSansBold,
+	TextColor3 = WHITE,
+	ZIndex = 5
+}, header)
+corner(styleButton, 6)
+
+local closeButton = make("TextButton", {
+	AnchorPoint = Vector2.new(1, 0.5),
+	Position = UDim2.new(1, -7, 0.5, 0),
+	Size = UDim2.fromOffset(25, 25),
+	BackgroundColor3 = Color3.fromRGB(55, 58, 68),
+	BorderSizePixel = 0,
+	Text = "X",
+	TextSize = 16,
+	Font = Enum.Font.SourceSansBold,
+	TextColor3 = WHITE,
+	ZIndex = 100,
+	Active = true
+}, header)
+corner(closeButton, 5)
+
+local countLabel = make("TextLabel", {
+	AnchorPoint = Vector2.new(1, 0.5),
+	Position = UDim2.new(1, -40, 0.5, 0),
+	Size = UDim2.fromOffset(35, 24),
+	BackgroundTransparency = 1,
+	Font = Enum.Font.SourceSans,
+	Text = "0",
+	TextSize = 15,
+	TextColor3 = MUTED,
+	TextXAlignment = Enum.TextXAlignment.Right,
+	ZIndex = 3
+}, header)
+
+local messages = make("ScrollingFrame", {
+	Name = "Messages",
+	Position = UDim2.new(0, 9, 0, 47),
+	Size = UDim2.new(1, -18, 1, -101),
+	BackgroundTransparency = 1,
+	BorderSizePixel = 0,
+	ScrollBarThickness = 5,
+	ScrollBarImageColor3 = Color3.fromRGB(130, 140, 158),
+	AutomaticCanvasSize = Enum.AutomaticSize.Y,
+	CanvasSize = UDim2.new(),
+	ScrollingDirection = Enum.ScrollingDirection.Y
+}, frame)
+
+make("UIListLayout", {
+	Padding = UDim.new(0, 4),
+	SortOrder = Enum.SortOrder.LayoutOrder
+}, messages)
+
+make("UIPadding", {
+	PaddingBottom = UDim.new(0, 6),
+	PaddingRight = UDim.new(0, 5)
+}, messages)
+
+local inputContainer = make("Frame", {
+	Name = "InputContainer",
+	AnchorPoint = Vector2.new(0, 1),
+	Position = UDim2.new(0, 9, 1, -9),
+	Size = UDim2.new(1, -18, 0, 39),
+	BackgroundColor3 = Color3.fromRGB(15, 17, 21),
+	BorderSizePixel = 0,
+	ZIndex = 10
+}, frame)
+corner(inputContainer, 10)
+local inputStroke = stroke(inputContainer, accent, 0.3)
+
+local INPUT_PLACEHOLDER = "Type a message (:emojis: to open emojis)"
+local input
+local sendMessage
+local openEmojiPicker
+local savedCursorPosition = 1
+local handlingEmojiTrigger = false
+local sending = false
+local emojiPanel
+local emojiSearch
+local hexInput
+local applyHexButton
+local resetStyleButton
+local closeStyle
+local hexStatus
+
+local function createInputBox()
+	local box = make("TextBox", {
+		Name = "ChatInput",
+		Position = UDim2.fromOffset(11, 0),
+		Size = UDim2.new(1, -22, 1, 0),
+		BackgroundTransparency = 1,
+		ClearTextOnFocus = false,
+		MultiLine = false,
+		Font = Enum.Font.SourceSans,
+		TextSize = 18,
+		TextColor3 = WHITE,
+		PlaceholderColor3 = MUTED,
+		PlaceholderText = INPUT_PLACEHOLDER,
+		Text = "",
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextYAlignment = Enum.TextYAlignment.Center,
+		ZIndex = 11
+	}, inputContainer)
+
+	track(box:GetPropertyChangedSignal("Text"):Connect(function()
+		if box ~= input or handlingEmojiTrigger then return end
+
+		local startPos, endPos = box.Text:find(":emojis:", 1, true)
+		if not startPos then return end
+
+		savedCursorPosition = startPos
+		local newText = box.Text:sub(1, startPos - 1)
+			.. box.Text:sub(endPos + 1)
+
+		handlingEmojiTrigger = true
+		box.Text = newText
+		box.CursorPosition = startPos
+		handlingEmojiTrigger = false
+
+		if openEmojiPicker then openEmojiPicker() end
+	end))
+
+	track(box.FocusLost:Connect(function(enterPressed)
+		if box ~= input or not enterPressed then return end
+		task.defer(function()
+			if not closed and box == input and sendMessage then
+				sendMessage()
+			end
+		end)
+	end))
+
+	return box
+end
+
+input = createInputBox()
+
+local stylePanel = make("Frame", {
+	Name = "StylePanel",
+	Position = UDim2.fromOffset(8, 43),
+	Size = UDim2.fromOffset(250, 255),
+	BackgroundColor3 = Color3.fromRGB(30, 32, 38),
+	BorderSizePixel = 0,
+	Visible = false,
+	ZIndex = 40
+}, frame)
+corner(stylePanel, 9)
+stroke(stylePanel, Color3.fromRGB(100, 105, 120), 0.25)
+
+make("TextLabel", {
+	Position = UDim2.fromOffset(10, 5),
+	Size = UDim2.new(1, -40, 0, 28),
+	BackgroundTransparency = 1,
+	Text = "Choose a chat color",
+	TextColor3 = WHITE,
+	TextSize = 17,
+	Font = Enum.Font.SourceSansBold,
+	TextXAlignment = Enum.TextXAlignment.Left,
+	ZIndex = 41
+}, stylePanel)
+
+closeStyle = make("TextButton", {
+	AnchorPoint = Vector2.new(1, 0),
+	Position = UDim2.new(1, -6, 0, 6),
+	Size = UDim2.fromOffset(25, 24),
+	BackgroundColor3 = Color3.fromRGB(55, 58, 68),
+	BorderSizePixel = 0,
+	Text = "X",
+	TextColor3 = WHITE,
+	TextSize = 14,
+	ZIndex = 42
+}, stylePanel)
+corner(closeStyle, 5)
+
+local swatches = make("Frame", {
+	Position = UDim2.fromOffset(8, 38),
+	Size = UDim2.new(1, -16, 0, 112),
+	BackgroundTransparency = 1,
+	ZIndex = 41
+}, stylePanel)
+
+make("UIGridLayout", {
+	CellSize = UDim2.fromOffset(43, 32),
+	CellPadding = UDim2.fromOffset(5, 5),
+	SortOrder = Enum.SortOrder.LayoutOrder
+}, swatches)
+
+local function parseHex(hex)
+	hex = tostring(hex or ""):gsub("%s+", ""):gsub("^#", "")
+	if #hex == 3 then
+		hex = hex:sub(1, 1):rep(2)
+			.. hex:sub(2, 2):rep(2)
+			.. hex:sub(3, 3):rep(2)
+	end
+	if #hex ~= 6 or not hex:match("^%x%x%x%x%x%x$") then
+		return nil
+	end
+	return Color3.fromRGB(
+		tonumber(hex:sub(1, 2), 16),
+		tonumber(hex:sub(3, 4), 16),
+		tonumber(hex:sub(5, 6), 16)
+	)
+end
+
+local presets = {
+	{name="Blue",hex="#4673DC"},
+	{name="Red",hex="#FF3333"},
+	{name="Green",hex="#24B36B"},
+	{name="Purple",hex="#9857FF"},
+	{name="Pink",hex="#FF5CA8"},
+	{name="Orange",hex="#FF8A30"},
+	{name="Yellow",hex="#E0B82E"},
+	{name="Cyan",hex="#20C7D9"},
+	{name="White",hex="#EAEAF0"},
+	{name="Dark",hex="#343640"},
+	{name="Gold",hex="#C9A227"},
+	{name="Teal",hex="#008F87"}
+}
+
+local function applyStyle(color)
+	accent = color
+
+	local panelDark = color:Lerp(Color3.fromRGB(15, 17, 21), 0.78)
+	local panelSurface = color:Lerp(Color3.fromRGB(25, 27, 31), 0.62)
+	local buttonShade = color:Lerp(Color3.fromRGB(25, 27, 31), 0.38)
+	local headerShade = color:Lerp(Color3.fromRGB(25, 27, 31), 0.55)
+	local messageShade = color:Lerp(Color3.fromRGB(25, 27, 31), 0.68)
+
+	styleButton.BackgroundColor3 = color
+	frameStroke.Color = color
+	inputStroke.Color = color
+	header.BackgroundColor3 = headerShade
+	inputContainer.BackgroundColor3 = panelDark
+	closeButton.BackgroundColor3 = buttonShade
+	closeStyle.BackgroundColor3 = buttonShade
+	applyHexButton.BackgroundColor3 = color
+	resetStyleButton.BackgroundColor3 = buttonShade
+	hexInput.BackgroundColor3 = panelDark
+	emojiSearch.BackgroundColor3 = panelDark
+	emojiPanel.BackgroundColor3 = panelSurface
+	messages.ScrollBarImageColor3 = color
+
+	for _, child in ipairs(header:GetChildren()) do
+		if child:IsA("Frame") then
+			child.BackgroundColor3 = headerShade
+		end
+	end
+
+	for _, child in ipairs(messages:GetChildren()) do
+		if child:IsA("TextLabel") and child.Name:match("^Message_") then
+			child.BackgroundColor3 = messageShade
+		end
+	end
+
+	local timestampColor = color:Lerp(Color3.fromRGB(220, 220, 230), 0.42)
+	local timestampHex = toHex(timestampColor)
+
+	for _, child in ipairs(messages:GetChildren()) do
+		if child:IsA("TextLabel") and child.Name:match("^Message_") then
+			child:SetAttribute("TimestampHex", timestampHex)
+		end
+	end
+end
+
+for _, preset in ipairs(presets) do
+	local swatch = make("TextButton", {
+		Name = preset.name,
+		BackgroundColor3 = parseHex(preset.hex),
+		BorderSizePixel = 0,
+		Text = "",
+		ZIndex = 42
+	}, swatches)
+	corner(swatch, 6)
+	stroke(swatch, Color3.fromRGB(225, 225, 235), 0.6)
+
+	track(swatch.Activated:Connect(function()
+		applyStyle(parseHex(preset.hex))
+	end))
+end
+
+make("TextLabel", {
+	Position = UDim2.fromOffset(9, 155),
+	Size = UDim2.fromOffset(74, 24),
+	BackgroundTransparency = 1,
+	Text = "HEX color:",
+	TextColor3 = WHITE,
+	TextSize = 15,
+	Font = Enum.Font.SourceSans,
+	TextXAlignment = Enum.TextXAlignment.Left,
+	ZIndex = 42
+}, stylePanel)
+
+hexInput = make("TextBox", {
+	Position = UDim2.fromOffset(82, 154),
+	Size = UDim2.fromOffset(95, 26),
+	BackgroundColor3 = Color3.fromRGB(15, 17, 21),
+	BorderSizePixel = 0,
+	Text = "#FF3333",
+	PlaceholderText = "#RRGGBB",
+	TextColor3 = WHITE,
+	PlaceholderColor3 = MUTED,
+	TextSize = 15,
+	Font = Enum.Font.Code,
+	ClearTextOnFocus = false,
+	ZIndex = 42
+}, stylePanel)
+corner(hexInput, 5)
+
+applyHexButton = make("TextButton", {
+	Position = UDim2.fromOffset(182, 154),
+	Size = UDim2.fromOffset(58, 26),
+	BackgroundColor3 = accent,
+	BorderSizePixel = 0,
+	Text = "Apply",
+	TextColor3 = WHITE,
+	TextSize = 14,
+	Font = Enum.Font.SourceSansBold,
+	ZIndex = 42
+}, stylePanel)
+corner(applyHexButton, 5)
+
+hexStatus = make("TextLabel", {
+	Position = UDim2.fromOffset(9, 180),
+	Size = UDim2.new(1, -18, 0, 24),
+	BackgroundTransparency = 1,
+	Text = "Enter a HEX value like #FF0000",
+	TextColor3 = MUTED,
+	TextSize = 13,
+	Font = Enum.Font.SourceSans,
+	TextWrapped = true,
+	TextXAlignment = Enum.TextXAlignment.Left,
+	ZIndex = 42
+}, stylePanel)
+
+resetStyleButton = make("TextButton", {
+	Position = UDim2.fromOffset(9, 207),
+	Size = UDim2.new(1, -18, 0, 22),
+	BackgroundColor3 = Color3.fromRGB(55, 58, 68),
+	BorderSizePixel = 0,
+	Text = "Reset Style",
+	TextColor3 = WHITE,
+	TextSize = 14,
+	Font = Enum.Font.SourceSansBold,
+	ZIndex = 42
+}, stylePanel)
+corner(resetStyleButton, 5)
+
+local function applyCustomHex()
+	local color = parseHex(hexInput.Text)
+	if not color then
+		hexStatus.Text = "Invalid HEX. Example: #FF0000"
+		hexStatus.TextColor3 = Color3.fromRGB(255, 100, 100)
+		return
+	end
+
+	applyStyle(color)
+	hexStatus.Text = "Style applied!"
+	hexStatus.TextColor3 = Color3.fromRGB(120, 230, 150)
+end
+
+track(applyHexButton.Activated:Connect(applyCustomHex))
+track(hexInput.FocusLost:Connect(function(enterPressed)
+	if enterPressed then applyCustomHex() end
+end))
+
+track(resetStyleButton.Activated:Connect(function()
+	applyStyle(DEFAULT_ACCENT)
+	hexInput.Text = "#FF3333"
+	hexStatus.Text = "Style reset."
+	hexStatus.TextColor3 = MUTED
+end))
+
+track(styleButton.Activated:Connect(function()
+	stylePanel.Visible = not stylePanel.Visible
+end))
+
+track(closeStyle.Activated:Connect(function()
+	stylePanel.Visible = false
+end))
+
+emojiPanel = make("Frame", {
+	Name = "EmojiPicker",
+	AnchorPoint = Vector2.new(0, 1),
+	Position = UDim2.new(0, 9, 1, -54),
+	Size = UDim2.new(1, -18, 0, 112),
+	BackgroundColor3 = Color3.fromRGB(32, 34, 40),
+	BorderSizePixel = 0,
+	Visible = false,
+	ZIndex = 20
+}, frame)
+corner(emojiPanel, 8)
+stroke(emojiPanel, Color3.fromRGB(90, 95, 110), 0.25)
+
+emojiSearch = make("TextBox", {
+	Position = UDim2.fromOffset(6, 6),
+	Size = UDim2.new(1, -12, 0, 27),
+	BackgroundColor3 = Color3.fromRGB(15, 17, 21),
+	BorderSizePixel = 0,
+	ClearTextOnFocus = false,
+	Font = Enum.Font.SourceSans,
+	TextSize = 16,
+	TextColor3 = WHITE,
+	PlaceholderColor3 = MUTED,
+	PlaceholderText = "Search emojis...",
+	Text = "",
+	ZIndex = 21
+}, emojiPanel)
+corner(emojiSearch, 5)
+
+local emojiScroll = make("ScrollingFrame", {
+	Position = UDim2.fromOffset(6, 38),
+	Size = UDim2.new(1, -12, 1, -44),
+	BackgroundTransparency = 1,
+	BorderSizePixel = 0,
+	ScrollBarThickness = 4,
+	AutomaticCanvasSize = Enum.AutomaticSize.Y,
+	CanvasSize = UDim2.new(),
+	ZIndex = 21
+}, emojiPanel)
+
+make("UIGridLayout", {
+	CellSize = UDim2.fromOffset(30, 28),
+	CellPadding = UDim2.fromOffset(2, 2),
+	SortOrder = Enum.SortOrder.LayoutOrder
+}, emojiScroll)
+
+local function rebuildEmojiList(searchText)
+	for _, child in ipairs(emojiScroll:GetChildren()) do
+		if child:IsA("TextButton") then
+			child:Destroy()
+		end
+	end
+
+	searchText = string.lower(searchText or "")
+	local order = 0
+
+	for category, contents in pairs(CATALOG) do
+		local categoryMatches = searchText == ""
+			or string.find(string.lower(category), searchText, 1, true) ~= nil
+
+		for emoji in contents:gmatch("%S+") do
+			if categoryMatches or string.find(emoji, searchText, 1, true) then
+				order += 1
+
+				local button = make("TextButton", {
+					LayoutOrder = order,
+					BackgroundColor3 = Color3.fromRGB(48, 51, 62),
+					BorderSizePixel = 0,
+					Text = emoji,
+					TextSize = 20,
+					Font = Enum.Font.SourceSans,
+					ZIndex = 22
+				}, emojiScroll)
+				corner(button, 4)
+
+				track(button.Activated:Connect(function()
+					if closed or not input or not input.Parent then return end
+
+					local text = input.Text
+					local cursor = savedCursorPosition
+					if cursor < 1 or cursor > #text + 1 then
+						cursor = #text + 1
+					end
+
+					input.Text = text:sub(1, cursor - 1)
+						.. emoji .. text:sub(cursor)
+					savedCursorPosition = cursor + #emoji
+					emojiPanel.Visible = false
+					input:CaptureFocus()
+					input.CursorPosition = savedCursorPosition
+				end))
+			end
+		end
+	end
+end
+
+openEmojiPicker = function()
+	if not input then return end
+
+	savedCursorPosition = input.CursorPosition
+	if savedCursorPosition < 1 then
+		savedCursorPosition = #input.Text + 1
+	end
+
+	emojiPanel.Visible = true
+	emojiSearch.Text = ""
+	rebuildEmojiList("")
+	emojiSearch:CaptureFocus()
+end
+
+track(emojiSearch:GetPropertyChangedSignal("Text"):Connect(function()
+	rebuildEmojiList(emojiSearch.Text)
+end))
+
+local messageCount = 0
+local seenMessages = setmetatable({}, {__mode = "k"})
+
+local function addMessage(displayName, messageText, messageObject, formatted)
+	if closed then return end
+
+	if messageObject then
+		if seenMessages[messageObject] then return end
+		seenMessages[messageObject] = true
+	end
+
+	messageCount += 1
+
+	local timestampColor = accent:Lerp(Color3.fromRGB(220, 220, 230), 0.42)
+	local timestampHex = toHex(timestampColor)
+	local rowColor = accent:Lerp(Color3.fromRGB(25, 27, 31), 0.68)
+
+	local row = make("TextLabel", {
+		Name = "Message_" .. messageCount,
+		LayoutOrder = messageCount,
+		Size = UDim2.new(1, -5, 0, 0),
+		AutomaticSize = Enum.AutomaticSize.Y,
+		BackgroundColor3 = rowColor,
+		BackgroundTransparency = 0.72,
+		BorderSizePixel = 0,
+		Font = Enum.Font.SourceSans,
+		TextSize = 18,
+		TextWrapped = true,
+		TextXAlignment = Enum.TextXAlignment.Left,
+		TextYAlignment = Enum.TextYAlignment.Top,
+		TextColor3 = WHITE,
+		RichText = true
+	}, messages)
+
+	row:SetAttribute("TimestampHex", timestampHex)
+
+	if formatted then
+		row.Text = string.format(
+			'<font color="%s">[%s]</font> %s %s',
+			timestampHex,
+			escapeRichText(os.date("%H:%M:%S")),
+			displayName or "",
+			escapeRichText(messageText or "")
+		)
+	else
+		row.Text = string.format(
+			'<font color="%s">[%s]</font> <font color="#D4D4D4">%s:</font> %s',
+			timestampHex,
+			escapeRichText(os.date("%H:%M:%S")),
+			escapeRichText(displayName or "System"),
+			escapeRichText(messageText or "")
+		)
+	end
+
+	local rows = {}
+	for _, child in ipairs(messages:GetChildren()) do
+		if child:IsA("TextLabel") and child.Name:match("^Message_%d+$") then
+			table.insert(rows, child)
+		end
+	end
+
+	table.sort(rows, function(a, b)
+		return a.LayoutOrder < b.LayoutOrder
+	end)
+
+	while #rows > MAX_MESSAGES do
+		rows[1]:Destroy()
+		table.remove(rows, 1)
+	end
+
+	countLabel.Text = tostring(math.min(messageCount, MAX_MESSAGES))
+
+	task.defer(function()
+		if not closed and messages.Parent then
+			messages.CanvasPosition = Vector2.new(
+				0,
+				math.max(0, messages.AbsoluteCanvasSize.Y - messages.AbsoluteWindowSize.Y)
+			)
+		end
+	end)
+end
+
+local function refreshMessageStyles()
+	local timestampHex = toHex(accent:Lerp(Color3.fromRGB(220, 220, 230), 0.42))
+	local rowColor = accent:Lerp(Color3.fromRGB(25, 27, 31), 0.68)
+
+	for _, row in ipairs(messages:GetChildren()) do
+		if row:IsA("TextLabel") and row.Name:match("^Message_%d+$") then
+			row.BackgroundColor3 = rowColor
+			row:SetAttribute("TimestampHex", timestampHex)
+
+			local oldText = row.Text
+			local prefix, rest = oldText:match("^(.-%[.-%])(.*)$")
+
+			if prefix and rest then
+				local escapedPrefix = prefix:gsub(
+					'<font color=".-">',
+					'<font color="' .. timestampHex .. '">'
+				)
+				row.Text = escapedPrefix .. rest
+			end
+		end
+	end
+end
+
+local originalApplyStyle = applyStyle
+applyStyle = function(color)
+	originalApplyStyle(color)
+	refreshMessageStyles()
+end
+
+track(TextChatService.MessageReceived:Connect(function(message)
+	if not message or not message.Text or message.Text == "" then return end
+
+	local prefix = message.PrefixText or ""
+	if prefix == "" and message.TextSource then
+		local sender = Players:GetPlayerByUserId(message.TextSource.UserId)
+		prefix = escapeRichText(sender and sender.DisplayName or "Player") .. ":"
+	end
+
+	addMessage(prefix, message.Text, message, true)
+end))
+
+local function getChannel()
+	local channels = TextChatService:FindFirstChild("TextChannels")
+	if not channels then return nil end
+
+	local general = channels:FindFirstChild("RBXGeneral")
+	if general and general:IsA("TextChannel") then
+		return general
+	end
+
+	for _, channel in ipairs(channels:GetChildren()) do
+		if channel:IsA("TextChannel") then
+			return channel
+		end
+	end
+
+	return nil
+end
+
+local function refreshChatBar()
+	local oldInput = input
+	if oldInput then oldInput:Destroy() end
+
+	handlingEmojiTrigger = false
+	savedCursorPosition = 1
+	input = createInputBox()
+	emojiPanel.Visible = false
+
+	task.defer(function()
+		if not closed and gui.Parent and input and input.Parent then
+			input:CaptureFocus()
+			input.CursorPosition = 1
+		end
+	end)
+end
+
+sendMessage = function()
+	if closed or sending or not input or not input.Parent then return end
+
+	local text = input.Text
+	if text:gsub("%s+", "") == "" then return end
+
+	local channel = getChannel()
+	if not channel then
+		addMessage("System", "No chat channel is available.")
+		return
+	end
+
+	sending = true
+	refreshChatBar()
+
+	task.spawn(function()
+		local ok, err = pcall(function()
+			channel:SendAsync(text)
+		end)
+
+		if not ok then
+			warn("[CustomChat] SendAsync failed:", err)
+		end
+
+		sending = false
+	end)
+end
+
+local dragging = false
+local resizing = false
+local dragStart
+local dragStartPosition
+local resizeStart
+local resizeStartSize
+local resizeStartPosition
+local activeCorner
+local CORNER_SIZE = 24
+
+track(header.InputBegan:Connect(function(obj)
+	if obj.UserInputType == Enum.UserInputType.MouseButton1
+		or obj.UserInputType == Enum.UserInputType.Touch then
+
+		local pointer = obj.Position
+		local closePos = closeButton.AbsolutePosition
+		local closeSize = closeButton.AbsoluteSize
+
+		if pointer.X >= closePos.X
+			and pointer.X <= closePos.X + closeSize.X
+			and pointer.Y >= closePos.Y
+			and pointer.Y <= closePos.Y + closeSize.Y then
+			return
+		end
+
+		dragging = true
+		resizing = false
+		dragStart = obj.Position
+		dragStartPosition = frame.Position
+	end
+end))
+
+for _, name in ipairs({"TopLeft", "TopRight", "BottomLeft", "BottomRight"}) do
+	local area = make("TextButton", {
+		Name = name .. "ResizeArea",
+		Size = UDim2.fromOffset(CORNER_SIZE, CORNER_SIZE),
+		BackgroundTransparency = 1,
+		BorderSizePixel = 0,
+		Text = "",
+		AutoButtonColor = false,
+		Active = true,
+		ZIndex = 30
+	}, frame)
+
+	if name == "TopLeft" then
+		area.Position = UDim2.fromOffset(0, 0)
+	elseif name == "TopRight" then
+		area.AnchorPoint = Vector2.new(1, 0)
+		area.Position = UDim2.new(1, -30, 0, 0)
+	elseif name == "BottomLeft" then
+		area.AnchorPoint = Vector2.new(0, 1)
+		area.Position = UDim2.new(0, 0, 1, 0)
+	else
+		area.AnchorPoint = Vector2.new(1, 1)
+		area.Position = UDim2.new(1, 0, 1, 0)
+	end
+
+	track(area.InputBegan:Connect(function(obj)
+		if obj.UserInputType ~= Enum.UserInputType.MouseButton1
+			and obj.UserInputType ~= Enum.UserInputType.Touch then
+			return
+		end
+
+		if name == "TopRight" then
+			local pointer = obj.Position
+			local closePos = closeButton.AbsolutePosition
+			local closeSize = closeButton.AbsoluteSize
+
+			if pointer.X >= closePos.X
+				and pointer.X <= closePos.X + closeSize.X
+				and pointer.Y >= closePos.Y
+				and pointer.Y <= closePos.Y + closeSize.Y then
+				return
+			end
+		end
+
+		resizing = true
+		dragging = false
+		activeCorner = name
+		resizeStart = obj.Position
+		resizeStartSize = frame.AbsoluteSize
+		resizeStartPosition = frame.Position
+	end))
+end
+
+track(UserInputService.InputChanged:Connect(function(obj)
+	if closed then return end
+	if obj.UserInputType ~= Enum.UserInputType.MouseMovement
+		and obj.UserInputType ~= Enum.UserInputType.Touch then
+		return
+	end
+
+	if dragging then
+		local delta = obj.Position - dragStart
+		frame.Position = UDim2.new(
+			dragStartPosition.X.Scale,
+			dragStartPosition.X.Offset + delta.X,
+			dragStartPosition.Y.Scale,
+			dragStartPosition.Y.Offset + delta.Y
+		)
+	end
+
+	if resizing then
+		local delta = obj.Position - resizeStart
+		local left = activeCorner == "TopLeft" or activeCorner == "BottomLeft"
+		local top = activeCorner == "TopLeft" or activeCorner == "TopRight"
+
+		local width = resizeStartSize.X + (left and -delta.X or delta.X)
+		local height = resizeStartSize.Y + (top and -delta.Y or delta.Y)
+
+		local newWidth = math.clamp(width, MIN_WIDTH, MAX_WIDTH)
+		local newHeight = math.clamp(height, MIN_HEIGHT, MAX_HEIGHT)
+
+		local x = resizeStartPosition.X.Offset
+		local y = resizeStartPosition.Y.Offset
+
+		if left then x += resizeStartSize.X - newWidth end
+		if top then y += resizeStartSize.Y - newHeight end
+
+		frame.Size = UDim2.fromOffset(newWidth, newHeight)
+		frame.Position = UDim2.new(
+			resizeStartPosition.X.Scale, x,
+			resizeStartPosition.Y.Scale, y
+		)
+	end
+end))
+
+track(UserInputService.InputEnded:Connect(function(obj)
+	if obj.UserInputType == Enum.UserInputType.MouseButton1
+		or obj.UserInputType == Enum.UserInputType.Touch then
+		dragging = false
+		resizing = false
+		activeCorner = nil
+	end
+end))
+
+local function restoreBuiltInChat()
+	pcall(function()
+		TextChatService.ChatWindowConfiguration.Enabled = true
+	end)
+
+	pcall(function()
+		TextChatService.ChatInputBarConfiguration.Enabled = true
+	end)
+
+	pcall(function()
+		StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Chat, true)
+	end)
+
+	task.defer(function()
+		pcall(function()
+			TextChatService.ChatWindowConfiguration.Enabled = true
+			TextChatService.ChatInputBarConfiguration.Enabled = true
+			StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Chat, true)
+		end)
+	end)
+end
+
+local function closeCustomChat()
+	if closed then return end
+	closed = true
+
+	dragging = false
+	resizing = false
+	activeCorner = nil
+
+	restoreBuiltInChat()
+
+	for _, connection in ipairs(connections) do
+		pcall(function()
+			connection:Disconnect()
+		end)
+	end
+	table.clear(connections)
+
+	gui:Destroy()
+end
+
+track(closeButton.Activated:Connect(closeCustomChat))
+
+track(UserInputService.InputBegan:Connect(function(key, processed)
+	if closed or processed or key.KeyCode ~= Enum.KeyCode.Slash then return end
+	if UserInputService:GetFocusedTextBox() then return end
+
+	if input and input.Parent then
+		input:CaptureFocus()
+		task.defer(function()
+			if not closed and input and input.Parent and input:IsFocused() then
+				input.CursorPosition = #input.Text + 1
+			end
+		end)
+	end
+end))
+
+pcall(function()
+	TextChatService.ChatWindowConfiguration.Enabled = false
+	TextChatService.ChatInputBarConfiguration.Enabled = false
+	StarterGui:SetCoreGuiEnabled(Enum.CoreGuiType.Chat, false)
+end)
+
+applyStyle(accent)
+rebuildEmojiList("")
+addMessage("System", "Custom chat ready.")
+
+print("[CustomChat] Loaded successfully.")
